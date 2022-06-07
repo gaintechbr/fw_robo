@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "rcl.h": "c",
+        "error_handling.h": "c",
+        "executor.h": "c",
+        "*.msg": "c",
+        "odometry.h": "c",
+        "math.h": "c",
+        "string_functions.h": "c",
+        "freertos.h": "c",
+        "task.h": "c",
+        "gpio.h": "c",
+        "timer.h": "c",
+        "queue.h": "c"
+    }
+}

@@ -33,7 +33,7 @@ void appMain(void * arg)
 							"robo_thread",
 							CONFIG_MICRO_ROS_APP_STACK,
 							NULL,
-							CONFIG_MICRO_ROS_APP_TASK_PRIO + 1,
+							CONFIG_MICRO_ROS_APP_TASK_PRIO,
 							NULL,1);
 
 	while(1){

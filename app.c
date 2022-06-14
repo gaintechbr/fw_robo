@@ -34,7 +34,11 @@ void appMain(void * arg)
 							CONFIG_MICRO_ROS_APP_STACK*2,
 							NULL,
 							CONFIG_MICRO_ROS_APP_TASK_PRIO,
+<<<<<<< HEAD
 							NULL);
+=======
+							NULL,1);
+>>>>>>> master
 
 	while(1){
 		sleep(10);

@@ -11,6 +11,12 @@
         "task.h": "c",
         "gpio.h": "c",
         "timer.h": "c",
-        "queue.h": "c"
+        "queue.h": "c",
+        "reent.h": "c",
+        "_ansi.h": "c",
+        "newlib.h": "c",
+        "_newlib_version.h": "c",
+        "queueroboros.h": "c",
+        "queuerobo.h": "c"
     }
 }

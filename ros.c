@@ -6,7 +6,10 @@
 #include <rcl/error_handling.h>
 #include <nav_msgs/msg/odometry.h>
 #include <geometry_msgs/msg/twist.h>
+#include <geometry_msgs/msg/pose.h>
 #include "rosidl_runtime_c/string_functions.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
@@ -17,10 +20,14 @@
 
 
 rcl_publisher_t publisher;
+rcl_publisher_t publisherPoseTest;
+rcl_publisher_t publisherVelTest;
 rcl_subscription_t subscriber;
 nav_msgs__msg__Odometry odomMsg;
 nav_msgs__msg__Odometry odomData;
 geometry_msgs__msg__Twist cmdVelMsg;
+geometry_msgs__msg__Pose poseTest;
+geometry_msgs__msg__Twist velTest;
 
 
 
@@ -87,8 +94,12 @@ void odomTimerCallback(rcl_timer_t * timer, int64_t last_call_time)
 {
 	RCLC_UNUSED(last_call_time);
 	if (timer != NULL) {
-		RCSOFTCHECK(rcl_publish(&publisher, &odomMsg, NULL));
+		// RCSOFTCHECK(rcl_publish(&publisher, &odomMsg, NULL));
 		// atualizaMsgOdom();
+		poseTest = odomMsg.pose.pose;
+		velTest = odomMsg.twist.twist;
+		RCSOFTCHECK(rcl_publish(&publisherPoseTest, &poseTest, NULL));
+		RCSOFTCHECK(rcl_publish(&publisherVelTest, &velTest, NULL));
 	}
 }
 
@@ -119,7 +130,22 @@ void rosThreadTask(){
 		&node,
 		ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry),
 		"odometry"));
+
+
+	//==============================TEST===================================
+	RCCHECK(rclc_publisher_init_default(
+		&publisherPoseTest,
+		&node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
+		"poseTest"));
+	RCCHECK(rclc_publisher_init_default(
+		&publisherVelTest,
+		&node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
+		"velTest"));
+	//==============================TEST===================================
 	
+
 	// create subscriber
 	RCCHECK(rclc_subscription_init_default(
 		&subscriber,
@@ -151,6 +177,8 @@ void rosThreadTask(){
 
 	// free resources
 	RCCHECK(rcl_publisher_fini(&publisher, &node))
+	RCCHECK(rcl_publisher_fini(&publisherPoseTest, &node))
+	RCCHECK(rcl_publisher_fini(&publisherVelTest, &node))
 	RCCHECK(rcl_subscription_fini(&subscriber, &node));
 	RCCHECK(rcl_node_fini(&node))
 }

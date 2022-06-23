@@ -1,8 +1,25 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "queueRoboROS.h"
+#include "driver/timer.h"
 
+
+// =================== CONFIG DO TIMER ==============================
+
+#define TIMER_INTR_SEL TIMER_INTR_LEVEL  /*!< Timer level interrupt */
+#define TIMER_GROUP    TIMER_GROUP_0     /*!< Test on timer group 0 */
+#define TIMER_DIVIDER   80               /*!< Hardware timer clock divider, 80 to get 1MHz clock to timer */
+#define TIMER_SCALE    (TIMER_BASE_CLK / TIMER_DIVIDER)  /*!< used to calculate counter value */
+#define TIMER_FINE_ADJ   (0*(TIMER_BASE_CLK / TIMER_DIVIDER)/1000000) /*!< used to compensate alarm value */
+// #define ODOM_TIMER_INTERVAL_SEC   (0.02)   /*!< test interval for timer 0 */
+
+// =================== CONFIG DOS GPIOs DA ODOM ==============================
 
 #define ESP_INTR_FLAG_DEFAULT 0
 
@@ -169,7 +186,7 @@ void computaOdometria(){
   odomDataToSend.velLin = velLinear;
   odomDataToSend.velAng = velAngular;
 
-  xQueueSend(queueOdom, &odomDataToSend, NULL);
+  
 }
 
 void initGPIOEncoders(){
@@ -203,4 +220,55 @@ void initGPIOEncoders(){
   gpio_isr_handler_add(ROTARY_DIREITA_PIN_A, encoder_direito, (void*) ROTARY_DIREITA_PIN_A);
   gpio_isr_handler_add(ROTARY_DIREITA_PIN_B, encoder_direito, (void*) ROTARY_DIREITA_PIN_B);
 
+}
+
+
+// void IRAM_ATTR odomTimerCallback(void *args){
+//   // computaOdometria();
+//   // xQueueSend(queueOdom, &odomDataToSend, NULL);
+// }
+
+
+// static void odomTimerInit()
+// {
+//     int timer_group = TIMER_GROUP_0;
+//     int timer_idx = TIMER_0;
+//     timer_config_t config;
+//     config.alarm_en = 1;
+//     config.auto_reload = 1;
+//     config.counter_dir = TIMER_COUNT_UP;
+//     config.divider = TIMER_DIVIDER;
+//     config.intr_type = TIMER_INTR_SEL;
+//     config.counter_en = TIMER_PAUSE;
+//     /*Configure timer*/
+//     timer_init(timer_group, timer_idx, &config);
+//     /*Stop timer counter*/
+//     timer_pause(timer_group, timer_idx);
+//     /*Load counter value */
+//     timer_set_counter_value(timer_group, timer_idx, 0x00000000ULL);
+//     /*Set alarm value*/
+//     timer_set_alarm_value(timer_group, timer_idx, (dtLoopOdom_s * TIMER_SCALE) - TIMER_FINE_ADJ);
+//     /*Enable timer interrupt*/
+//     timer_enable_intr(timer_group, timer_idx);
+//     /*Set ISR handler*/
+//     timer_isr_register(timer_group, timer_idx, odomTimerCallback, (void*) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
+//     /*Start timer counter*/
+//     timer_start(timer_group, timer_idx);
+// }
+
+
+void odomTaskThread(){
+  
+  initGPIOEncoders();
+  // odomTimerInit();
+  const portTickType delay = 20 / portTICK_RATE_MS;
+  TickType_t tic = xTaskGetTickCount();
+  while (1){
+    // contPulsos();
+    computaOdometria();
+    xQueueSend(queueOdom, &odomDataToSend, NULL);
+
+    // vTaskDelay(20/portTICK_RATE_MS);
+    vTaskDelayUntil(&tic, delay);
+  }
 }

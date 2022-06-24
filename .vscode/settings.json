@@ -17,6 +17,11 @@
         "config.h": "c",
         "newlib.h": "c",
         "_newlib_version.h": "c",
-        "pose.h": "c"
+        "pose.h": "c",
+        "dac.h": "c",
+        "dac_types.h": "c",
+        "dac_caps.h": "c",
+        "mcpwm.h": "c",
+        "ledc.h": "c"
     }
 }

@@ -1,7 +1,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ros.c"
-#include "robo.c"
+#include "odom.c"
 #include "queueRoboROS.h"
 
 #define CONFIG_MICRO_ROS_APP_STACK 16000
@@ -20,6 +20,7 @@ static void odomQueueTask(void* arg)
 void appMain(void * arg)
 {
 	queueOdom = xQueueCreate(10, sizeof(odomQueueData_t));
+	
 	xTaskCreate(odomQueueTask, "odom_queueTask", 2048, NULL, 10, NULL);
 
 	xTaskCreatePinnedToCore(rosThreadTask,
@@ -29,8 +30,8 @@ void appMain(void * arg)
 							CONFIG_MICRO_ROS_APP_TASK_PRIO,
 							NULL,0);
 
-	xTaskCreatePinnedToCore(roboTaskThread,
-							"robo_thread",
+	xTaskCreatePinnedToCore(odomTaskThread,
+							"odom_thread",
 							CONFIG_MICRO_ROS_APP_STACK,
 							NULL,
 							CONFIG_MICRO_ROS_APP_TASK_PRIO,

@@ -92,7 +92,7 @@ void atualizaMsgOdom(odomQueueData_t* odomDataFromRobot){
 
 /* Callback do timer para atualização e publicação da odometria */
 
-void odomTimerCallback(rcl_timer_t * timer, int64_t last_call_time)
+void pubOdomTimerCallback(rcl_timer_t * timer, int64_t last_call_time)
 {
 	RCLC_UNUSED(last_call_time);
 	if (timer != NULL) {
@@ -163,7 +163,7 @@ void rosThreadTask(){
 		&timer,
 		&support,
 		RCL_MS_TO_NS(timer_timeout),
-		odomTimerCallback));
+		pubOdomTimerCallback));
 
 	// create executor
 	rclc_executor_t executor;

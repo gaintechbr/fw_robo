@@ -5,8 +5,7 @@
 #include <rcl/rcl.h>
 #include <rcl/error_handling.h>
 #include <nav_msgs/msg/odometry.h>
-#include <geometry_msgs/msg/twist.h>
-#include <geometry_msgs/msg/pose.h>
+#include <grobot_interfaces/msg/set_points_rodas.h>
 #include "rosidl_runtime_c/string_functions.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -23,14 +22,7 @@ rcl_publisher_t publisher;
 rcl_subscription_t subscriber;
 nav_msgs__msg__Odometry odomMsg;
 nav_msgs__msg__Odometry odomData;
-geometry_msgs__msg__Twist cmdVelMsg;
-//==============================TEST===================================
-geometry_msgs__msg__Pose poseTest;
-geometry_msgs__msg__Twist velTest;
-rcl_publisher_t publisherPoseTest;
-rcl_publisher_t publisherVelTest;
-//==============================TEST===================================
-
+grobot_interfaces__msg__SetPointsRodas setPointsMsg;
 
 
 geometry_msgs__msg__Quaternion RPYToQuat(double roll, double pitch, double yaw){
@@ -97,20 +89,15 @@ void pubOdomTimerCallback(rcl_timer_t * timer, int64_t last_call_time)
 	RCLC_UNUSED(last_call_time);
 	if (timer != NULL) {
 		RCSOFTCHECK(rcl_publish(&publisher, &odomMsg, NULL));
-	//==============================TEST===================================
-		poseTest = odomMsg.pose.pose;
-		velTest = odomMsg.twist.twist;
-		RCSOFTCHECK(rcl_publish(&publisherPoseTest, &poseTest, NULL));
-		RCSOFTCHECK(rcl_publish(&publisherVelTest, &velTest, NULL));
-	//==============================TEST===================================
 	}
 }
 
 /* Callback da subscrição do tópico cmd_vel, atualizando as mensagens de cmd vel */
 
-void cmdvelSubscriptionCallback(const void * msgin)
+void setPointsSubscriptionCallback(const void * msgin)
 {
-	const geometry_msgs__msg__Twist * cmdVelMsg = (const geometry_msgs__msg__Twist*)msgin;
+	const grobot_interfaces__msg__SetPointsRodas * setPointsMsg = (const grobot_interfaces__msg__SetPointsRodas*)msgin;
+	xQueueSend(queueSetPoints, setPointsMsg, NULL);
 }
 
 void rosThreadTask(){
@@ -134,27 +121,12 @@ void rosThreadTask(){
 		ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry),
 		"odometry"));
 
-
-	//==============================TEST===================================
-	RCCHECK(rclc_publisher_init_default(
-		&publisherPoseTest,
-		&node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
-		"poseTest"));
-	RCCHECK(rclc_publisher_init_default(
-		&publisherVelTest,
-		&node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-		"velTest"));
-	//==============================TEST===================================
-	
-
 	// create subscriber
 	RCCHECK(rclc_subscription_init_default(
 		&subscriber,
 		&node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-		"cmd_vel"));
+		ROSIDL_GET_MSG_TYPE_SUPPORT(grobot_interfaces, msg, SetPointsRodas),
+		"set_points_rodas"));
 
 	// create timer,
 	rcl_timer_t timer;
@@ -167,23 +139,18 @@ void rosThreadTask(){
 
 	// create executor
 	rclc_executor_t executor;
-	RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
+	RCCHECK(rclc_executor_init(&executor, &support.context, 3, &allocator));
 	RCCHECK(rclc_executor_add_timer(&executor, &timer));
-	RCCHECK(rclc_executor_add_subscription(&executor, &subscriber, &cmdVelMsg, &cmdvelSubscriptionCallback, ON_NEW_DATA));
+	RCCHECK(rclc_executor_add_subscription(&executor, &subscriber, &setPointsMsg, &setPointsSubscriptionCallback, ON_NEW_DATA));
 
 	zeraOdometria(&odomMsg,"odom", "base_link");
-
+	printf("Setup do ROS finalizado\n");
 	while(1){
 		rclc_executor_spin_some(&executor, RCL_MS_TO_NS(40));
-		// usleep(20000);
 	}
 
 	// free resources
-	RCCHECK(rcl_publisher_fini(&publisher, &node))
-	//==============================TEST===================================
-	RCCHECK(rcl_publisher_fini(&publisherPoseTest, &node))
-	RCCHECK(rcl_publisher_fini(&publisherVelTest, &node))
-	//==============================TEST===================================
+	RCCHECK(rcl_publisher_fini(&publisher, &node));
 	RCCHECK(rcl_subscription_fini(&subscriber, &node));
-	RCCHECK(rcl_node_fini(&node))
+	RCCHECK(rcl_node_fini(&node));
 }

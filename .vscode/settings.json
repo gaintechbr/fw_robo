@@ -22,6 +22,9 @@
         "dac_types.h": "c",
         "dac_caps.h": "c",
         "mcpwm.h": "c",
-        "ledc.h": "c"
+        "ledc.h": "c",
+        "twist.h": "c",
+        "float32_multi_array.h": "c",
+        "set_points_rodas.h": "c"
     }
 }

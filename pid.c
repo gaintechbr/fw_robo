@@ -2,26 +2,31 @@
 #include "freertos/task.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
+#include "grobot_interfaces/msg/set_points_rodas.h"
+#include "queueRoboROS.h"
 
 #define PID_TIMER_INTERVAL_SEC   (0.02)
 
-#define PIN_PWM_RD_R 36
-#define PIN_PWM_RD_L 36
-#define PIN_EN_RD_R 0
-#define PIN_EN_RD_L 0
-#define CHANNEL_PWM_RD_R LEDC_CHANNEL_0
-#define CHANNEL_PWM_RD_L LEDC_CHANNEL_1
+#define PIN_PWM_RD_R 32
+#define PIN_PWM_RD_L 33
+#define PIN_EN_RD_R 27
+#define PIN_EN_RD_L 14
+#define CHANNEL_PWM_RD_R LEDC_CHANNEL_2
+#define CHANNEL_PWM_RD_L LEDC_CHANNEL_3
 
-#define PIN_PWM_RE_R 39
-#define PIN_PWM_RE_L 39
-#define PIN_EN_RE_R 0
-#define PIN_EN_RE_L 0
-#define CHANNEL_PWM_RE_R LEDC_CHANNEL_2
-#define CHANNEL_PWM_RE_L LEDC_CHANNEL_3
+#define PIN_PWM_RE_R 25
+#define PIN_PWM_RE_L 26
+#define PIN_EN_RE_R 12
+#define PIN_EN_RE_L 13
+#define CHANNEL_PWM_RE_R LEDC_CHANNEL_4
+#define CHANNEL_PWM_RE_L LEDC_CHANNEL_5
 
 #define PIN_MOTORES_EN_SELECT ((1ULL<<PIN_EN_RD_R) | (1ULL<<PIN_EN_RD_L) | (1ULL<<PIN_EN_RE_R) | (1ULL<<PIN_EN_RE_L) )
 
 #define BANDA_MORTA_MOTORES 10
+
+float SPRD = 0, SPRE = 0, vRD = 0, vRE = 0;
+bool habilitaMotores = false;
 
 typedef struct pidGains
 {
@@ -35,6 +40,17 @@ int sign(int x)
     if(x > 0) return 1;
     if(x < 0) return -1;
     return 0;
+}
+
+void atualizaSetPoints(grobot_interfaces__msg__SetPointsRodas* setPointsDataFromRobot){
+	SPRD = setPointsDataFromRobot->sprd;
+	SPRE = setPointsDataFromRobot->spre;
+    habilitaMotores = setPointsDataFromRobot->habilita_motores;
+}
+
+void atualizaVelRodas(velRodasData_t *velRodas){
+    vRD = velRodas->vRD;
+    vRE = velRodas->vRE;
 }
 
 
@@ -110,10 +126,11 @@ void inicializaMotores(){
 
     ledc_timer_config_t timerConfig = {
         .speed_mode = LEDC_HIGH_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .bit_num = LEDC_TIMER_10_BIT,
+        .duty_resolution = LEDC_TIMER_12_BIT,
+        // .bit_num = LEDC_TIMER_12_BIT,
         .timer_num = LEDC_TIMER_0,
-        .freq_hz = 10000
+        .freq_hz = 19000,
+        .clk_cfg = LEDC_AUTO_CLK
     };
 
     ledc_timer_config(&timerConfig);
@@ -128,6 +145,19 @@ void inicializaMotores(){
 
     };
     gpio_config(&io_conf);
+
+    gpio_set_level(PIN_EN_RD_R, 0);
+    gpio_set_level(PIN_EN_RD_L, 0);
+    gpio_set_level(PIN_EN_RE_R, 0);
+    gpio_set_level(PIN_EN_RE_L, 0);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_L, 0);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_R, 0);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RE_L, 0);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RE_R, 0);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_L);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_R);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_L);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_R);
 }
 
 void atuaMotores(float uRD, float uRE, bool habiltaMotores){
@@ -140,6 +170,8 @@ void atuaMotores(float uRD, float uRE, bool habiltaMotores){
         gpio_set_level(PIN_EN_RE_L, 0);
         ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_L, 0);
         ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_R, 0);
+        ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RE_L, 0);
+        ledc_set_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RE_R, 0);
     }
     else{
         if((uRD < BANDA_MORTA_MOTORES) & (uRD > (-BANDA_MORTA_MOTORES))){
@@ -196,17 +228,21 @@ void atuaMotores(float uRD, float uRE, bool habiltaMotores){
             }
         }
     }
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_R);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RD_L);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RE_R);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, CHANNEL_PWM_RE_L);
 }
 
 
 
 void pidTaskThread(){
     // Variáveis PID RD
-    float uRD = 0, SPRD = 0, vRD = 0, erroAntRD = 0, inteAntRD = 0, erroSatAntRD = 0;
+    float uRD = 0, erroAntRD = 0, inteAntRD = 0, erroSatAntRD = 0;
     pidGains ganhoRD = {.Kc = 25, .Ti = 0.1, .Td = 0};
 
     // Variáveis PID RE
-    float uRE = 0, SPRE = 0, vRE = 0, erroAntRE = 0, inteAntRE = 0, erroSatAntRE = 0;
+    float uRE = 0, erroAntRE = 0, inteAntRE = 0, erroSatAntRE = 0;
     pidGains ganhoRE = {.Kc = 25, .Ti = 0.1, .Td = 0};
 
     float Ts = PID_TIMER_INTERVAL_SEC;
@@ -216,15 +252,13 @@ void pidTaskThread(){
   
     const portTickType delay = (u_int32_t)(Ts * 1000) / portTICK_RATE_MS;
     TickType_t tic = xTaskGetTickCount();
-
     while (1){
         // Computa PIDs
         uRD = computaPID(SPRD, vRD, ganhoRD, &erroAntRD, &inteAntRD, &erroSatAntRD, Ts);
         uRE = computaPID(SPRE, vRE, ganhoRE, &erroAntRE, &inteAntRE, &erroSatAntRE, Ts);
-
-        atuaMotores(uRD, uRE, true);
-
-        // vTaskDelay(20/portTICK_RATE_MS);
+        
+        atuaMotores(uRD, uRE, habilitaMotores);
+        
         vTaskDelayUntil(&tic, delay);
     }
 }

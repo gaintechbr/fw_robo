@@ -5,6 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/home/pablo/microros_ws/firmware/mcu_ws/install/include/",
+                "/home/pablo/microros_ws/firmware/mcu_ws/grobot_interfaces/include/",
                 "/home/pablo/microros_ws/firmware/toolchain/esp-idf/components/freertos/include/",
                 "/home/pablo/microros_ws/firmware/toolchain/esp-idf/components/driver/include/",
                 "/home/pablo/microros_ws/firmware/toolchain/esp-idf/components/esp_common/include/",

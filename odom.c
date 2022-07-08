@@ -65,26 +65,17 @@ double yAnterior = 0.0;
 double thetaAnterior = 0.0;
 
 odomQueueData_t odomDataToSend;
-
-// hw_timer_t * timer0 = NULL;
-// // hw_timer_t * timer1 = NULL;
+velRodasData_t velRodasDataToSend;
 
 portMUX_TYPE muxEncDireito = portMUX_INITIALIZER_UNLOCKED;
 portMUX_TYPE muxEncEsquerdo = portMUX_INITIALIZER_UNLOCKED;
 
-// static void IRAM_ATTR gpio_isr_handler(void* arg)
-// {
-//     uint32_t gpio_num = (uint32_t) arg;
-// }
 
 void IRAM_ATTR encoder_direito(void* arg) {
   
   uint8_t s_d = estadoRodaDireita & 3;
   portENTER_CRITICAL_ISR(&muxEncDireito);
   
-  // if (((uint32_t) arg) == ROTARY_DIREITA_PIN_A) s_d |= 4;
-  // if (((uint32_t) arg) == ROTARY_DIREITA_PIN_B) s_d |= 8;
-
   if (gpio_get_level(ROTARY_DIREITA_PIN_A)) s_d |= 4;
   if (gpio_get_level(ROTARY_DIREITA_PIN_B)) s_d |= 8;
   switch (s_d) {
@@ -102,7 +93,6 @@ void IRAM_ATTR encoder_direito(void* arg) {
   estadoRodaDireita = (s_d >> 2);
   
   portEXIT_CRITICAL_ISR(&muxEncDireito);
- 
 }
 
 
@@ -112,9 +102,6 @@ void IRAM_ATTR encoder_esquerdo(void* arg) {
 
   portENTER_CRITICAL_ISR(&muxEncEsquerdo);
   
-  // if (((uint32_t) arg) == ROTARY_ESQUERDA_PIN_A) s_e |= 4;
-  // if (((uint32_t) arg) == ROTARY_ESQUERDA_PIN_B) s_e |= 8;
-
   if (gpio_get_level(ROTARY_ESQUERDA_PIN_A)) s_e |= 4;
   if (gpio_get_level(ROTARY_ESQUERDA_PIN_B)) s_e |= 8;
   switch (s_e) {
@@ -132,7 +119,6 @@ void IRAM_ATTR encoder_esquerdo(void* arg) {
   estadoRodaEsquerda = (s_e >> 2);
   
   portEXIT_CRITICAL_ISR(&muxEncEsquerdo); 
- 
 }
 
 void computaOdometria(){
@@ -175,7 +161,6 @@ void computaOdometria(){
   velRodaEsquerda = ((difPulsosRodaEsquerda*dist_entre_pulsos_roda_esq_em_cm)/dtLoopOdom_s);          //converte em cm to m
   velRodaDireita = ((difPulsosRodaDireita*dist_entre_pulsos_roda_dir_em_cm)/dtLoopOdom_s);            //converte em cm to m
 
-  
   xAnterior = x;
   yAnterior = y;
   thetaAnterior = theta;
@@ -186,7 +171,10 @@ void computaOdometria(){
   odomDataToSend.velLin = velLinear;
   odomDataToSend.velAng = velAngular;
 
-  
+  velRodasDataToSend.vRD = velRodaDireita;
+  velRodasDataToSend.vRE = velRodaEsquerda;
+
+  xQueueSend(queueVelRodas, &velRodasDataToSend, NULL);
 }
 
 void initGPIOEncoders(){
@@ -223,52 +211,16 @@ void initGPIOEncoders(){
 }
 
 
-// void IRAM_ATTR odomTimerCallback(void *args){
-//   // computaOdometria();
-//   // xQueueSend(queueOdom, &odomDataToSend, NULL);
-// }
-
-
-// static void odomTimerInit()
-// {
-//     int timer_group = TIMER_GROUP_0;
-//     int timer_idx = TIMER_0;
-//     timer_config_t config;
-//     config.alarm_en = 1;
-//     config.auto_reload = 1;
-//     config.counter_dir = TIMER_COUNT_UP;
-//     config.divider = TIMER_DIVIDER;
-//     config.intr_type = TIMER_INTR_SEL;
-//     config.counter_en = TIMER_PAUSE;
-//     /*Configure timer*/
-//     timer_init(timer_group, timer_idx, &config);
-//     /*Stop timer counter*/
-//     timer_pause(timer_group, timer_idx);
-//     /*Load counter value */
-//     timer_set_counter_value(timer_group, timer_idx, 0x00000000ULL);
-//     /*Set alarm value*/
-//     timer_set_alarm_value(timer_group, timer_idx, (dtLoopOdom_s * TIMER_SCALE) - TIMER_FINE_ADJ);
-//     /*Enable timer interrupt*/
-//     timer_enable_intr(timer_group, timer_idx);
-//     /*Set ISR handler*/
-//     timer_isr_register(timer_group, timer_idx, odomTimerCallback, (void*) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
-//     /*Start timer counter*/
-//     timer_start(timer_group, timer_idx);
-// }
-
-
 void odomTaskThread(){
   
   initGPIOEncoders();
-  // odomTimerInit();
+
   const portTickType delay = 20 / portTICK_RATE_MS;
   TickType_t tic = xTaskGetTickCount();
   while (1){
-    // contPulsos();
     computaOdometria();
     xQueueSend(queueOdom, &odomDataToSend, NULL);
 
-    // vTaskDelay(20/portTICK_RATE_MS);
     vTaskDelayUntil(&tic, delay);
   }
 }
